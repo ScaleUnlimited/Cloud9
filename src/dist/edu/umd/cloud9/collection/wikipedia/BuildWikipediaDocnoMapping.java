@@ -156,7 +156,7 @@ public class BuildWikipediaDocnoMapping extends Configured implements Tool {
 		sLogger.info("number of mappers: " + mapTasks);
 
 		JobConf conf = new JobConf(BuildWikipediaDocnoMapping.class);
-		conf.setJobName("NumberWikipediaArticles");
+		conf.setJobName("BuildWikipediaDocnoMapping");
 
 		conf.setNumMapTasks(mapTasks);
 		conf.setNumReduceTasks(1);

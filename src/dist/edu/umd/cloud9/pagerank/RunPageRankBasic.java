@@ -543,7 +543,7 @@ public class RunPageRankBasic extends Configured implements Tool {
 
 		conf.setJobName("PageRank:Basic:iteration" + j + ":Phase2");
 		conf.setInt("mapred.min.split.size", 1024 * 1024 * 1024);
-		conf.setFloat("MissingMass", (float) missing);
+		conf.set("MissingMass", "" + (float) missing);
 		conf.setInt("NodeCount", n);
 
 		conf.setNumMapTasks(numMapTasks);

@@ -149,4 +149,42 @@
 
 	</target>
 
+	<!-- ================================================================== -->
+	<!-- Update libraries dir                                               -->
+	<!-- ================================================================== -->
+	
+	<target name="libs">
+	
+		<!-- Make sure lib/ dir starts out empty, so we don't get multiple
+		     copies of jars with slightly different versions
+		  -->
+		<delete dir="${build}/lib" />
+		<mkdir dir="${build}/lib" />
+
+		<copy todir="${build}/lib" flatten="true">
+			<fileset dir="${lib}">
+				<include name="**/*.jar" />
+				<exclude name="**/hadoop-*.jar"/>
+			</fileset>
+		</copy>
+
+	</target>
+
+
+	<!-- ================================================================== -->
+	<!-- Hadoop job jar                                                     -->
+	<!-- ================================================================== -->
+
+	<target name="job"
+	        depends="compile, libs"
+	        description="--> create a Hadoop ready jar with all dependencies">
+
+		<jar destfile="${build}/cloud9-job.jar" compress="true">
+			<fileset dir="${build}" />
+			<fileset dir="${build}" includes="lib/" />
+		</jar>
+	</target>
+
+
+
 </project>

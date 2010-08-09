@@ -14,7 +14,7 @@
  * permissions and limitations under the License.
  */
 
-package edu.umd.cloud9.pagerank;
+package edu.umd.cloud9.pagerankbig;
 
 import java.io.IOException;
 import java.text.DecimalFormat;
@@ -31,7 +31,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.FloatWritable;
-import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableComparable;
@@ -54,9 +54,9 @@ import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import edu.umd.cloud9.io.ArrayListOfIntsWritable;
-import edu.umd.cloud9.util.HMapIF;
-import edu.umd.cloud9.util.MapIF;
+import edu.umd.cloud9.io.ArrayListOfLongsWritable;
+import edu.umd.cloud9.util.HMapLF;
+import edu.umd.cloud9.util.MapLF;
 
 /**
  * <p>
@@ -71,7 +71,6 @@ import edu.umd.cloud9.util.MapIF;
  * <li>[end]: ending iteration</li>
  * <li>[useCombiner?]: 1 for using combiner, 0 for not</li>
  * <li>[useInMapCombiner?]: 1 for using in-mapper combining, 0 for not</li>
- * <li>[useRange?]: 1 for range partitioning, 0 for not</li>
  * </ul>
  * 
  * <p>
@@ -94,16 +93,16 @@ public class RunPageRankSchimmy extends Configured implements Tool {
 
 	// mapper, no in-mapper combining
 	private static class MapClass extends MapReduceBase implements
-			Mapper<IntWritable, PageRankNode, IntWritable, FloatWritable> {
+			Mapper<LongWritable, PageRankNode, LongWritable, FloatWritable> {
 
 		// the neighbor to which we're sending messages
-		private static IntWritable sNeighbor = new IntWritable();
+		private static LongWritable sNeighbor = new LongWritable();
 
 		// contents of the messages: partial PageRank mass
 		private static FloatWritable sIntermediateMass = new FloatWritable();
 
-		public void map(IntWritable nid, PageRankNode node,
-				OutputCollector<IntWritable, FloatWritable> output, Reporter reporter)
+		public void map(LongWritable nid, PageRankNode node,
+				OutputCollector<LongWritable, FloatWritable> output, Reporter reporter)
 				throws IOException {
 
 			int massMessages = 0;
@@ -111,7 +110,7 @@ public class RunPageRankSchimmy extends Configured implements Tool {
 			// distribute PageRank mass to neighbors (along outgoing edges)
 			if (node.getAdjacenyList().size() > 0) {
 				// each neighbor gets an equal share of PageRank mass
-				ArrayListOfIntsWritable list = node.getAdjacenyList();
+				ArrayListOfLongsWritable list = node.getAdjacenyList();
 				float mass = node.getPageRank() - (float) StrictMath.log(list.size());
 
 				// iterate over neighbors
@@ -133,16 +132,16 @@ public class RunPageRankSchimmy extends Configured implements Tool {
 
 	// mapper with in-mapper combiner optimization
 	private static class MapWithInMapperCombiningClass extends MapReduceBase implements
-			Mapper<IntWritable, PageRankNode, IntWritable, FloatWritable> {
+			Mapper<LongWritable, PageRankNode, LongWritable, FloatWritable> {
 
 		// save a reference to the output collector
-		private static OutputCollector<IntWritable, FloatWritable> mOutput;
+		private static OutputCollector<LongWritable, FloatWritable> mOutput;
 
 		// for buffering PageRank mass contributes keyed by destination node
-		private static HMapIF map = new HMapIF();
+		private static HMapLF map = new HMapLF();
 
-		public void map(IntWritable nid, PageRankNode node,
-				OutputCollector<IntWritable, FloatWritable> output, Reporter reporter)
+		public void map(LongWritable nid, PageRankNode node,
+				OutputCollector<LongWritable, FloatWritable> output, Reporter reporter)
 				throws IOException {
 			mOutput = output;
 
@@ -152,12 +151,12 @@ public class RunPageRankSchimmy extends Configured implements Tool {
 			// distribute PageRank mass to neighbors (along outgoing edges)
 			if (node.getAdjacenyList().size() > 0) {
 				// each neighbor gets an equal share of PageRank mass
-				ArrayListOfIntsWritable list = node.getAdjacenyList();
+				ArrayListOfLongsWritable list = node.getAdjacenyList();
 				float mass = node.getPageRank() - (float) StrictMath.log(list.size());
 
 				// iterate over neighbors
 				for (int i = 0; i < list.size(); i++) {
-					int neighbor = list.get(i);
+					long neighbor = list.get(i);
 
 					if (map.containsKey(neighbor)) {
 						// already message destined for that node; add PageRank
@@ -180,10 +179,10 @@ public class RunPageRankSchimmy extends Configured implements Tool {
 
 		public void close() throws IOException {
 			// now emit the messages all at once
-			IntWritable k = new IntWritable();
+			LongWritable k = new LongWritable();
 			FloatWritable v = new FloatWritable();
 
-			for (MapIF.Entry e : map.entrySet()) {
+			for (MapLF.Entry e : map.entrySet()) {
 				k.set(e.getKey());
 				v.set(e.getValue());
 
@@ -194,12 +193,12 @@ public class RunPageRankSchimmy extends Configured implements Tool {
 
 	// combiner: sums partial PageRank contributions
 	private static class CombineClass extends MapReduceBase implements
-			Reducer<IntWritable, FloatWritable, IntWritable, FloatWritable> {
+			Reducer<LongWritable, FloatWritable, LongWritable, FloatWritable> {
 
 		private static FloatWritable sIntermediateMass = new FloatWritable();
 
-		public void reduce(IntWritable nid, Iterator<FloatWritable> values,
-				OutputCollector<IntWritable, FloatWritable> output, Reporter reporter)
+		public void reduce(LongWritable nid, Iterator<FloatWritable> values,
+				OutputCollector<LongWritable, FloatWritable> output, Reporter reporter)
 				throws IOException {
 
 			int massMessages = 0;
@@ -224,20 +223,20 @@ public class RunPageRankSchimmy extends Configured implements Tool {
 
 	// reduce: sums incoming PageRank contributions, rewrite graph structure
 	private static class ReduceClass extends MapReduceBase implements
-			Reducer<IntWritable, FloatWritable, IntWritable, PageRankNode> {
+			Reducer<LongWritable, FloatWritable, LongWritable, PageRankNode> {
 
 		private JobConf mJobConf;
 		private String mTaskId;
 		private String mPath;
 
-		private OutputCollector<IntWritable, PageRankNode> mOutput;
+		private OutputCollector<LongWritable, PageRankNode> mOutput;
 		private Reporter mReporter;
 
 		private float mTotalMass = Float.NEGATIVE_INFINITY;
 
 		private SequenceFile.Reader reader;
 
-		private IntWritable mStateNid = new IntWritable();
+		private LongWritable mStateNid = new LongWritable();
 		private PageRankNode mStateNode = new PageRankNode();
 
 		static {
@@ -247,7 +246,7 @@ public class RunPageRankSchimmy extends Configured implements Tool {
 		public void configure(JobConf job) {
 			mJobConf = job;
 			mTaskId = job.get("mapred.task.id");
-			mPath = job.get("PageRankMassPath");
+			mPath = job.get(ConfKeys.PATH_TO_MASS_FILES);
 
 			// we want to reconstruct the mapping from partition file stored on
 			// disk and the actual partition...
@@ -280,8 +279,8 @@ public class RunPageRankSchimmy extends Configured implements Tool {
 			}
 		}
 
-		public void reduce(IntWritable nid, Iterator<FloatWritable> values,
-				OutputCollector<IntWritable, PageRankNode> output, Reporter reporter)
+		public void reduce(LongWritable nid, Iterator<FloatWritable> values,
+				OutputCollector<LongWritable, PageRankNode> output, Reporter reporter)
 				throws IOException {
 			mOutput = output;
 			mReporter = reporter;
@@ -352,18 +351,18 @@ public class RunPageRankSchimmy extends Configured implements Tool {
 	// mapper that distributes the missing PageRank mass (lost at the dangling
 	// nodes) and takes care of the random jump factor.
 	private static class MapPageRankMassDistributionClass extends MapReduceBase implements
-			Mapper<IntWritable, PageRankNode, IntWritable, PageRankNode> {
+			Mapper<LongWritable, PageRankNode, LongWritable, PageRankNode> {
 
 		private float mMissingMass = 0.0f;
-		private int mNodeCnt = 0;
+		private long mNodeCnt = 0;
 
 		public void configure(JobConf job) {
-			mMissingMass = job.getFloat("MissingMass", 0.0f);
-			mNodeCnt = job.getInt("NodeCount", 0);
+			mMissingMass = job.getFloat(ConfKeys.MISSING_MASS, 0.0f);
+			mNodeCnt = job.getLong(ConfKeys.NUM_NODES, 0);
 		}
 
-		public void map(IntWritable nid, PageRankNode node,
-				OutputCollector<IntWritable, PageRankNode> output, Reporter reporter)
+		public void map(LongWritable nid, PageRankNode node,
+				OutputCollector<LongWritable, PageRankNode> output, Reporter reporter)
 				throws IOException {
 
 			float p = node.getPageRank();
@@ -398,7 +397,7 @@ public class RunPageRankSchimmy extends Configured implements Tool {
 
 	private static int printUsage() {
 		System.out
-				.println("usage: [basePath] [numNodes] [start] [end] [useCombiner?] [useInMapCombiner?] [useRange?]");
+				.println("usage: [basePath] [numNodes] [start] [end] [useCombiner?] [useInMapCombiner?]");
 		ToolRunner.printGenericCommandUsage(System.out);
 		return -1;
 	}
@@ -407,19 +406,18 @@ public class RunPageRankSchimmy extends Configured implements Tool {
 	 * Runs this tool.
 	 */
 	public int run(String[] args) throws Exception {
-		if (args.length != 7) {
+		if (args.length != 6) {
 			System.err.println("Invalid number of args: " + args.length);
 			printUsage();
 			return -1;
 		}
 
 		String basePath = args[0];
-		int n = Integer.parseInt(args[1]);
+		long n = Long.parseLong(args[1]);
 		int s = Integer.parseInt(args[2]);
 		int e = Integer.parseInt(args[3]);
 		boolean useCombiner = Integer.parseInt(args[4]) != 0;
 		boolean useInmapCombiner = Integer.parseInt(args[5]) != 0;
-		boolean useRange = Integer.parseInt(args[6]) != 0;
 
 		sLogger.info("Tool name: RunPageRank");
 		sLogger.info(" - basePath: " + basePath);
@@ -428,23 +426,22 @@ public class RunPageRankSchimmy extends Configured implements Tool {
 		sLogger.info(" - end iteration: " + e);
 		sLogger.info(" - useCombiner?: " + useCombiner);
 		sLogger.info(" - useInMapCombiner?: " + useInmapCombiner);
-		sLogger.info(" - useRange?: " + useRange);
 
 		// iterate PageRank
 		for (int i = s; i < e; i++) {
-			iteratePageRank(basePath, i, i + 1, n, useCombiner, useInmapCombiner, useRange);
+			iteratePageRank(basePath, i, i + 1, n, useCombiner, useInmapCombiner);
 		}
 
 		return 0;
 	}
 
 	// run each iteration
-	private void iteratePageRank(String path, int i, int j, int n, boolean useCombiner,
-			boolean useInmapCombiner, boolean useRange) throws IOException {
+	private void iteratePageRank(String path, int i, int j, long n, boolean useCombiner,
+			boolean useInmapCombiner) throws IOException {
 		// each iteration consists of two phases (two MapReduce jobs)...
 
 		// job1: distribute PageRank mass along outgoing edges
-		float mass = phase1(path, i, j, n, useCombiner, useInmapCombiner, useRange);
+		float mass = phase1(path, i, j, n, useCombiner, useInmapCombiner);
 
 		// find out how much PageRank mass got lost at the dangling nodes
 		float missing = 1.0f - (float) StrictMath.exp(mass);
@@ -453,8 +450,8 @@ public class RunPageRankSchimmy extends Configured implements Tool {
 		phase2(path, i, j, n, missing);
 	}
 
-	private float phase1(String path, int i, int j, int n, boolean useCombiner,
-			boolean useInmapCombiner, boolean useRange) throws IOException {
+	private float phase1(String path, int i, int j, long n, boolean useCombiner,
+			boolean useInmapCombiner) throws IOException {
 		JobConf conf = new JobConf(RunPageRankBasic.class);
 
 		String in = path + "/iter" + sFormat.format(i);
@@ -472,22 +469,17 @@ public class RunPageRankSchimmy extends Configured implements Tool {
 				numPartitions++;
 		}
 		
-		conf.setInt("NodeCount", n);
+		conf.setLong(ConfKeys.NUM_NODES, n);
 
 		Partitioner p = null;
 
-		if (useRange) {
-			p = new RangePartitioner<IntWritable, Writable>();
-			p.configure(conf);
-		} else {
-			p = new HashPartitioner<WritableComparable, Writable>();
-		}
+		p = new HashPartitioner<WritableComparable, Writable>();
 
 		// this is really annoying: the mapping between the partition numbers on
 		// disk (i.e., part-XXXX) and what partition the file contains (i.e.,
 		// key.hash % #reducer) is arbitrary... so this means that we need to
 		// open up each partition, peek inside to find out.
-		IntWritable key = new IntWritable();
+		LongWritable key = new LongWritable();
 		PageRankNode value = new PageRankNode();
 		FileStatus[] status = fs.listStatus(new Path(in));
 
@@ -516,7 +508,6 @@ public class RunPageRankSchimmy extends Configured implements Tool {
 		sLogger.info(" - useCombiner: " + useCombiner);
 		sLogger.info(" - useInmapCombiner: " + useInmapCombiner);
 		sLogger.info(" - numPartitions: " + numPartitions);
-		sLogger.info(" - useRange: " + useRange);
 		sLogger.info("computed number of partitions: " + numPartitions);
 
 		int numMapTasks = numPartitions;
@@ -530,20 +521,20 @@ public class RunPageRankSchimmy extends Configured implements Tool {
 		conf.setInt("mapred.min.split.size", 1024 * 1024 * 1024);
 		conf.set("mapred.child.java.opts", "-Xmx2048m");
 
-		conf.set("PageRankMassPath", outm);
+		conf.set(ConfKeys.PATH_TO_MASS_FILES, outm);
 		conf.set("BasePath", in);
 		conf.set("PartitionMapping", sb.toString().trim());
-
+		
 		FileInputFormat.setInputPaths(conf, new Path(in));
 		FileOutputFormat.setOutputPath(conf, new Path(out));
 
 		conf.setInputFormat(SequenceFileInputFormat.class);
 		conf.setOutputFormat(SequenceFileOutputFormat.class);
 
-		conf.setMapOutputKeyClass(IntWritable.class);
+		conf.setMapOutputKeyClass(LongWritable.class);
 		conf.setMapOutputValueClass(FloatWritable.class);
 
-		conf.setOutputKeyClass(IntWritable.class);
+		conf.setOutputKeyClass(LongWritable.class);
 		conf.setOutputValueClass(PageRankNode.class);
 
 		if (useInmapCombiner) {
@@ -554,10 +545,6 @@ public class RunPageRankSchimmy extends Configured implements Tool {
 
 		if (useCombiner) {
 			conf.setCombinerClass(CombineClass.class);
-		}
-
-		if (useRange) {
-			conf.setPartitionerClass(RangePartitioner.class);
 		}
 
 		conf.setReducerClass(ReduceClass.class);
@@ -579,7 +566,7 @@ public class RunPageRankSchimmy extends Configured implements Tool {
 		return mass;
 	}
 
-	private void phase2(String path, int i, int j, int n, float missing) throws IOException {
+	private void phase2(String path, int i, int j, long n, float missing) throws IOException {
 		JobConf conf = new JobConf(RunPageRankBasic.class);
 
 		sLogger.info("missing PageRank mass: " + missing);
@@ -607,18 +594,18 @@ public class RunPageRankSchimmy extends Configured implements Tool {
 		conf.setInputFormat(SequenceFileInputFormat.class);
 		conf.setOutputFormat(SequenceFileOutputFormat.class);
 
-		conf.setMapOutputKeyClass(IntWritable.class);
+		conf.setMapOutputKeyClass(LongWritable.class);
 		conf.setMapOutputValueClass(PageRankNode.class);
 
-		conf.setOutputKeyClass(IntWritable.class);
+		conf.setOutputKeyClass(LongWritable.class);
 		conf.setOutputValueClass(PageRankNode.class);
 
 		conf.setMapperClass(MapPageRankMassDistributionClass.class);
 		conf.setCombinerClass(IdentityReducer.class);
 		conf.setReducerClass(IdentityReducer.class);
 
-		conf.set("MissingMass", "" + (float) missing);
-		conf.setInt("NodeCount", n);
+		conf.set(ConfKeys.MISSING_MASS, "" + (float) missing);
+		conf.setLong(ConfKeys.NUM_NODES, n);
 
 		FileSystem.get(conf).delete(new Path(out), true);
 

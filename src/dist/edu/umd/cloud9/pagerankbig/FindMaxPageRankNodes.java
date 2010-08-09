@@ -14,7 +14,7 @@
  * permissions and limitations under the License.
  */
 
-package edu.umd.cloud9.pagerank;
+package edu.umd.cloud9.pagerankbig;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -25,7 +25,7 @@ import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.FloatWritable;
-import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobClient;
@@ -47,15 +47,15 @@ public class FindMaxPageRankNodes extends Configured implements Tool {
 
 	private static class NodeRanking implements Comparable<NodeRanking> {
 
-		private int nid;
+		private long nid;
 		private float score;
 
-		public NodeRanking(int n, float s) {
+		public NodeRanking(long n, float s) {
 			nid = n;
 			score = s;
 		}
 
-		public int getNodeId() {
+		public long getNodeId() {
 			return nid;
 		}
 
@@ -84,9 +84,9 @@ public class FindMaxPageRankNodes extends Configured implements Tool {
 	}
 
 	private static class MyMapper extends MapReduceBase implements
-			Mapper<IntWritable, PageRankNode, IntWritable, FloatWritable> {
+			Mapper<LongWritable, PageRankNode, LongWritable, FloatWritable> {
 
-		private static OutputCollector<IntWritable, FloatWritable> output;
+		private static OutputCollector<LongWritable, FloatWritable> output;
 		private static PriorityQueue<NodeRanking> q = new PriorityQueue<NodeRanking>();
 
 		private int n;
@@ -95,8 +95,8 @@ public class FindMaxPageRankNodes extends Configured implements Tool {
 			n = job.getInt("n", 100);
 		}
 
-		public void map(IntWritable nid, PageRankNode node,
-				OutputCollector<IntWritable, FloatWritable> output, Reporter reporter)
+		public void map(LongWritable nid, PageRankNode node,
+				OutputCollector<LongWritable, FloatWritable> output, Reporter reporter)
 				throws IOException {
 
 			this.output = output;
@@ -112,7 +112,7 @@ public class FindMaxPageRankNodes extends Configured implements Tool {
 		}
 
 		public void close() throws IOException {
-			IntWritable k = new IntWritable();
+			LongWritable k = new LongWritable();
 			FloatWritable v = new FloatWritable();
 
 			NodeRanking n;
@@ -127,9 +127,9 @@ public class FindMaxPageRankNodes extends Configured implements Tool {
 	}
 
 	private static class MyReducer extends MapReduceBase implements
-			Reducer<IntWritable, FloatWritable, IntWritable, FloatWritable> {
+			Reducer<LongWritable, FloatWritable, LongWritable, FloatWritable> {
 
-		private static OutputCollector<IntWritable, FloatWritable> output;
+		private static OutputCollector<LongWritable, FloatWritable> output;
 		private static PriorityQueue<NodeRanking> q = new PriorityQueue<NodeRanking>();
 
 		private int n = 100;
@@ -138,8 +138,8 @@ public class FindMaxPageRankNodes extends Configured implements Tool {
 			n = job.getInt("n", 100);
 		}
 
-		public void reduce(IntWritable nid, Iterator<FloatWritable> iter,
-				OutputCollector<IntWritable, FloatWritable> output, Reporter reporter)
+		public void reduce(LongWritable nid, Iterator<FloatWritable> iter,
+				OutputCollector<LongWritable, FloatWritable> output, Reporter reporter)
 				throws IOException {
 
 			this.output = output;
@@ -156,7 +156,7 @@ public class FindMaxPageRankNodes extends Configured implements Tool {
 		}
 
 		public void close() throws IOException {
-			IntWritable k = new IntWritable();
+			LongWritable k = new LongWritable();
 			FloatWritable v = new FloatWritable();
 
 			NodeRanking n;
@@ -214,10 +214,10 @@ public class FindMaxPageRankNodes extends Configured implements Tool {
 		conf.setInputFormat(SequenceFileInputFormat.class);
 		conf.setOutputFormat(TextOutputFormat.class);
 
-		conf.setMapOutputKeyClass(IntWritable.class);
+		conf.setMapOutputKeyClass(LongWritable.class);
 		conf.setMapOutputValueClass(FloatWritable.class);
 
-		conf.setOutputKeyClass(IntWritable.class);
+		conf.setOutputKeyClass(LongWritable.class);
 		conf.setOutputValueClass(FloatWritable.class);
 
 		conf.setMapperClass(MyMapper.class);

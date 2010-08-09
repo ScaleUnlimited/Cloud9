@@ -1,0 +1,6 @@
+#!/bin/sh
+if test -s ~/.bashrc
+then
+source ~/.bashrc
+fi
+java -Xmx1024m -classpath "/Users/kenkrugler/git/Cloud9/lib/bliki-core-3.0.14.jar:/Users/kenkrugler/git/Cloud9/lib/bzip2.jar:/Users/kenkrugler/git/Cloud9/lib/clojure-1.1.jar:/Users/kenkrugler/git/Cloud9/lib/collections-generic-4.01.jar:/Users/kenkrugler/git/Cloud9/lib/commons-cli-1.2.jar:/Users/kenkrugler/git/Cloud9/lib/commons-logging-1.1.jar:/Users/kenkrugler/git/Cloud9/lib/hadoop-0.20.1-core.jar:/Users/kenkrugler/git/Cloud9/lib/jetty-6.1.14.jar:/Users/kenkrugler/git/Cloud9/lib/jetty-util-6.1.14.jar:/Users/kenkrugler/git/Cloud9/lib/jung-algorithms-2.0.1.jar:/Users/kenkrugler/git/Cloud9/lib/jung-api-2.0.1.jar:/Users/kenkrugler/git/Cloud9/lib/jung-graph-impl-2.0.1.jar:/Users/kenkrugler/git/Cloud9/lib/junit-4.4.jar:/Users/kenkrugler/git/Cloud9/lib/log4j-1.2.13.jar:/Users/kenkrugler/git/Cloud9/lib/memcached-2.2.jar:/Users/kenkrugler/git/Cloud9/lib/servlet-api-2.5-6.1.14.jar:/Users/kenkrugler/git/Cloud9/lib/spy-2.4.jar:/Users/kenkrugler/git/Cloud9/cloud9.jar" org.junit.runner.JUnitCore $1
