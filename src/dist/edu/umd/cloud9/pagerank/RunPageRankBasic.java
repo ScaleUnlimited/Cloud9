@@ -205,6 +205,10 @@ public class RunPageRankBasic extends Configured implements Tool {
 
 				mOutput.collect(k, mass);
 			}
+			
+			// Add missing clear. Not needed for distributed Hadoop, if JVM use is not enabled.
+			// But when running locally, or with re-use enabled, you _must_ clear out this state.
+			map.clear();
 		}
 	}
 
@@ -355,11 +359,23 @@ public class RunPageRankBasic extends Configured implements Tool {
 
 			float p = node.getPageRank();
 
+			// Calculate what mAlpha percent looks like when divided by the number of nodes,
+			// as that's the average mass that randomly goes to any of the nodes from this node.
+			// So that's the random mass that this node will get.
 			float jump = (float) (Math.log(mAlpha) - Math.log(mNodeCnt));
+			
+			// Calculate the non-jump probability * (my mass + my share of missing mass)
 			float link = (float) Math.log(1.0f - mAlpha)
 					+ sumLogProbs(p, (float) (Math.log(mMissingMass) - Math.log(mNodeCnt)));
 
+			// Calculate jump mass + link mass
+			sLogger.info("For node " + node.getNodeId());
+			sLogger.info("\tOriginal mass: " + p);
+			sLogger.info("\tJump mass: " + jump);
+			sLogger.info("\tLink mass: " + link);
 			p = sumLogProbs(jump, link);
+			sLogger.info("\tNew mass: " + p);
+			
 			node.setPageRank(p);
 
 			output.collect(nid, node);
