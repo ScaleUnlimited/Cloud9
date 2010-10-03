@@ -63,6 +63,7 @@ import edu.umd.cloud9.util.MapIF;
  * <li>[useCombiner?]: 1 for using combiner, 0 for not</li>
  * <li>[useInMapCombiner?]: 1 for using in-mapper combining, 0 for not</li>
  * <li>[useRange?]: 1 for range partitioning, 0 for not</li>
+ * <li>[missingMassChangeTerminationThreshold]: terminates early when missing mass changes by at most this amount (optional parameter)</li>
  * </ul>
  * 
  * <p>
@@ -82,6 +83,8 @@ import edu.umd.cloud9.util.MapIF;
 public class RunPageRankBasic extends Configured implements Tool {
 
 	private static final Logger sLogger = Logger.getLogger(RunPageRankBasic.class);
+
+	private static final String STOP_ITERATING_FILENAME = "stop-iterating";
 
 	// mapper, no in-mapper combining
 	private static class MapClass extends MapReduceBase implements
@@ -401,7 +404,7 @@ public class RunPageRankBasic extends Configured implements Tool {
 
 	private static int printUsage() {
 		System.out
-				.println("usage: [basePath] [numNodes] [start] [end] [useCombiner?] [useInMapCombiner?] [useRange?]");
+				.println("usage: [basePath] [numNodes] [start] [end] [useCombiner?] [useInMapCombiner?] [useRange?] [missingMassChangeTerminationThreshold]");
 		ToolRunner.printGenericCommandUsage(System.out);
 		return -1;
 	}
@@ -411,38 +414,64 @@ public class RunPageRankBasic extends Configured implements Tool {
 	 */
 	public int run(String[] args) throws Exception {
 
-		if (args.length != 7) {
+		if ((args.length < 7) || (args.length > 8)) {
 			printUsage();
 			return -1;
 		}
 
-		String basePath = args[0];
+		String basePathString = args[0];
 		int n = Integer.parseInt(args[1]);
 		int s = Integer.parseInt(args[2]);
 		int e = Integer.parseInt(args[3]);
 		boolean useCombiner = Integer.parseInt(args[4]) != 0;
 		boolean useInmapCombiner = Integer.parseInt(args[5]) != 0;
 		boolean useRange = Integer.parseInt(args[6]) != 0;
+		float missingMassChangeTerminationThreshold = 0.0f;
+		if (args.length == 8) {
+			missingMassChangeTerminationThreshold = Float.parseFloat(args[7]);
+		}
 
 		sLogger.info("Tool name: RunPageRank");
-		sLogger.info(" - basePath: " + basePath);
+		sLogger.info(" - basePath: " + basePathString);
 		sLogger.info(" - numNodes: " + n);
 		sLogger.info(" - start iteration: " + s);
 		sLogger.info(" - end iteration: " + e);
 		sLogger.info(" - useCombiner?: " + useCombiner);
 		sLogger.info(" - useInMapCombiner?: " + useInmapCombiner);
 		sLogger.info(" - useRange?: " + useRange);
+		sLogger.info(" - missing mass change termination threshold: " + missingMassChangeTerminationThreshold);
 
+        Path basePath = new Path(basePathString);
+		JobConf conf = new JobConf(RunPageRankBasic.class);
+        final FileSystem basePathFs = basePath.getFileSystem(conf);
+		Path stopFilePath = new Path(basePath, STOP_ITERATING_FILENAME);
+		
 		// iterate PageRank
+		float lastMissingMass = 1.0f;
 		for (int i = s; i < e; i++) {
-			iteratePageRank(basePath, i, i + 1, n, useCombiner, useInmapCombiner, useRange);
+			if (basePathFs.exists(stopFilePath)) {
+				sLogger.info("Stop file encountered. Aborting PageRank before generating iteration " + (i+1));
+				basePathFs.delete(stopFilePath, true);
+				break;
+			}
+			float missingMass =
+				iteratePageRank(basePathString, i, i + 1, n, useCombiner, useInmapCombiner, useRange);
+			float missingMassChange = lastMissingMass - missingMass;
+			if (missingMassChange <= missingMassChangeTerminationThreshold) {
+				sLogger.info(	String.format(	"Reached missing mass change threshold (%f < %f). Aborting PageRank before generating iteration %d",
+												missingMassChange,
+												missingMassChangeTerminationThreshold,
+												(i + 1)));
+				break;
+			}
+			lastMissingMass = missingMass;
 		}
 
 		return 0;
 	}
 
 	// run each iteration
-	private void iteratePageRank(String path, int i, int j, int n, boolean useCombiner,
+	private float iteratePageRank(String path, int i, int j, int n, boolean useCombiner,
 			boolean useInmapCombiner, boolean useRange) throws IOException {
 		// each iteration consists of two phases (two MapReduce jobs)...
 
@@ -454,6 +483,8 @@ public class RunPageRankBasic extends Configured implements Tool {
 
 		// job2: distribute missing mass, take care of random jump factor
 		phase2(path, i, j, n, missing);
+		
+		return missing;
 	}
 
 	private float phase1(String path, int i, int j, int n, boolean useCombiner,
