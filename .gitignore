@@ -1,8 +1,4 @@
 .DS_Store
-<<<<<<< HEAD:.gitignore
-.settings/
-=======
->>>>>>> e2d8072833ef9bd2aa5c093719dc95e49c79ca49:.gitignore
 .local.*
 build
 cloud9.jar
