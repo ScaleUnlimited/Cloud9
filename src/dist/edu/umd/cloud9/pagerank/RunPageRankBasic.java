@@ -373,11 +373,11 @@ public class RunPageRankBasic extends Configured implements Tool {
 
 			// Calculate jump mass + link mass
 			sLogger.info("For node " + node.getNodeId());
-			sLogger.info("\tOriginal mass: " + p);
-			sLogger.info("\tJump mass: " + jump);
-			sLogger.info("\tLink mass: " + link);
+			sLogger.info("\tOriginal mass: exp(" + p + ")");
+			sLogger.info("\tJump mass: exp(" + jump + ")");
+			sLogger.info("\tLink mass: exp(" + link + ")");
 			p = sumLogProbs(jump, link);
-			sLogger.info("\tNew mass: " + p);
+			sLogger.info("\tNew mass: exp(" + p + ")");
 			
 			node.setPageRank(p);
 
