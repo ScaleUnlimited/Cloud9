@@ -117,7 +117,7 @@ public class FindMaxPageRankNodes extends Configured implements Tool {
 
 			NodeRanking n;
 			while ((n = q.poll()) != null) {
-				sLogger.info(n.getPageRank() + "\t" + n.getNodeId());
+				sLogger.info("exp(" + n.getPageRank() + ")\t" + n.getNodeId());
 
 				k.set(n.getNodeId());
 				v.set(n.getPageRank());
@@ -161,7 +161,7 @@ public class FindMaxPageRankNodes extends Configured implements Tool {
 
 			NodeRanking n;
 			while ((n = q.poll()) != null) {
-				sLogger.info(n.getPageRank() + "\t" + n.getNodeId());
+				sLogger.info("exp(" + n.getPageRank() + ")\t" + n.getNodeId());
 
 				k.set(n.getNodeId());
 				v.set(n.getPageRank());
