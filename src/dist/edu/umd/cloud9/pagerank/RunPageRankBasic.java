@@ -487,6 +487,11 @@ public class RunPageRankBasic extends Configured implements Tool {
 		// logarithm will fail, so it's not useful in the code that depends on
 		// missing mass.
 		if (missing < 0.0f) {
+			if (missing < -0.0001f) {
+				sLogger.warn("Discarding negative missing mass: " + missing);
+			} else {
+				sLogger.info("Discarding tiny negative missing mass: " + missing);
+			}
 			missing = 0.0f;
 		}
 
