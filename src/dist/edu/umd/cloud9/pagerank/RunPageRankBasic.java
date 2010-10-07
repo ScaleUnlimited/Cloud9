@@ -480,6 +480,15 @@ public class RunPageRankBasic extends Configured implements Tool {
 
 		// find out how much PageRank mass got lost at the dangling nodes
 		float missing = 1.0f - (float) StrictMath.exp(mass);
+		
+		// 2010-10-07 CSc Added to avoid NaN values in analysis:
+		//
+		// If missing mass is a small negative number, then taking its natural
+		// logarithm will fail, so it's not useful in the code that depends on
+		// missing mass.
+		if (missing < 0.0f) {
+			missing = 0.0f;
+		}
 
 		// job2: distribute missing mass, take care of random jump factor
 		phase2(path, i, j, n, missing);
